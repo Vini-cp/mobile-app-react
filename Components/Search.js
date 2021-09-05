@@ -4,31 +4,26 @@ import { getFilmsFromApiWithSearchedText } from '../API/TMDBApi'
 import FilmItem from './FilmItem'
 
 class Search extends React.Component {
+
   constructor(props) {
     super(props)
     this.searchedText = ""
-    this.state = { 
+    this.page = 0
+    this.totalPages = 0
+    this.state = {
       films: [],
       isLoading: false
-    }
-  }
-
-  _displayLoading() {
-    if (this.state.isLoading) {
-      return (
-        <View style={ styles.loading_container }>
-          <ActivityIndicator size='large' />
-        </View>
-      )
     }
   }
 
   _loadFilms() {
     if (this.searchedText.length > 0) {
       this.setState({ isLoading: true })
-      getFilmsFromApiWithSearchedText(this.searchedText).then(data => {
-          this.setState({ 
-            films: data.results,
+      getFilmsFromApiWithSearchedText(this.searchedText, this.page+1).then(data => {
+          this.page = data.page
+          this.totalPages = data.total_pages
+          this.setState({
+            films: [ ...this.state.films, ...data.results ],
             isLoading: false
           })
       })
@@ -36,23 +31,49 @@ class Search extends React.Component {
   }
 
   _searchTextInputChanged(text) {
-    this.searchedText = text
+    this.searchedText = text 
   }
 
-  render () {
+  _searchFilms() {
+    this.page = 0
+    this.totalPages = 0
+    this.setState({
+      films: [],
+    }, () => {
+        this._loadFilms()
+    })
+  }
+
+  _displayLoading() {
+    if (this.state.isLoading) {
+      return (
+        <View style={styles.loading_container}>
+          <ActivityIndicator size='large' />
+        </View>
+      )
+    }
+  }
+
+  render() {
     return (
-      <View style={ styles.main_container }>
+      <View style={styles.main_container}>
         <TextInput
           style={ styles.textinput }
           placeholder="Titre du filme"
           onChangeText={(text) => this._searchTextInputChanged(text)}
-          onSubmitEditing={() => this._loadFilms()}
+          onSubmitEditing={() => this._searchFilms()}
         />
-        <Button title="Rechercher" onPress={() => this._loadFilms()}/>
+        <Button title='Rechercher' onPress={() => this._searchFilms()}/>
         <FlatList
           data={this.state.films}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({item}) => <FilmItem film={item}/>}
+          onEndReachedThreshold={0.5}
+          onEndReached={() => {
+              if (this.page < this.totalPages) {
+                 this._loadFilms()
+              }
+          }}
         />
         {this._displayLoading()}
       </View>
@@ -68,7 +89,6 @@ const styles = StyleSheet.create({
   textinput: {
     marginLeft: 5,
     marginRight: 5,
-    marginBottom: 10,
     height: 50,
     borderColor: '#000000',
     borderWidth: 1,
